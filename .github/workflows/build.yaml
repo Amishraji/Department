@@ -1,9 +1,10 @@
-name: Build
-on:  
+name: Build and Deploy
+
+on:
   pull_request:
     types: [opened, synchronize, reopened]
   push:
-  
+
 jobs:
   build:
     name: Build
@@ -35,14 +36,22 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
       - name: Build and analyze
+        id: build_and_analyze
         env:
-          GITHUB_TOKEN: ${{ secrets._GITHUB_TOKEN }}  # Needed to get PR information, if any
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        #run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
-        run: mvn clean install package verify sonar:sonar -DskipTests -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} -Dsonar.login=${{ secrets.SONAR_TOKEN }} -Dsonar.qualitygate.wait=true -s $GITHUB_WORKSPACE/.github/workflows/maven-settings.xml
-        continue-on-error: false
-      - uses: snyk/actions/setup@master
-      - uses: actions/setup-go@v1
-        with:
-          go-version: '1.13'
+        run: |
+          mvn clean verify sonar:sonar -DskipTests -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} -Dsonar.login=${{ secrets.SONAR_TOKEN }} -Dsonar.qualitygate.wait=true -s $GITHUB_WORKSPACE/.github/workflows/maven-settings.xml
+          if [ $? -ne 0 ]; then
+            echo "Build and analysis failed"
+            exit 1
+          fi
+      - name: Trigger deployment
+        if: success() && steps.build_and_analyze.outcome == 'success'
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
+            -d '{"ref":"master"}'
