@@ -1,4 +1,4 @@
-name: Publish to EKS on dev
+name: Publish to EKS on Dev
 on:
   workflow_dispatch: 
     
