@@ -1,17 +1,7 @@
 name: Publish to EKS on dev
 on:
   workflow_dispatch: 
-    inputs:
-      choice:
-        type: choice
-        description: Select the environment
-        options:
-        - Dev
-        - Prod
-      rollback-image-tag:
-        description: 'Image Tag for Rollback (leave empty if not rolling back)'
-        required: false
-
+    
 jobs:  
   build:    
     name: Build and Deploy Image
