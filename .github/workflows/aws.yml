@@ -8,9 +8,6 @@ on:
         options:
         - Dev
         - Prod
-      build-name:
-        description: 'Build Name'
-        required: true
       rollback-image-tag:
         description: 'Image Tag for Rollback (leave empty if not rolling back)'
         required: false
