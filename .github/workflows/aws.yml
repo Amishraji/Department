@@ -29,16 +29,16 @@ jobs:
     - name: Set environment variables
       run: |
         case ${{ github.event.inputs.choice }} in
-          DEV)
+          Dev)
             echo "CLUSTER_NAME=prod-eks" >> $GITHUB_ENV
             echo "yaml_file=department.yaml" >> $GITHUB_ENV
-	          echo "CONTAINER_NAME1=department" >> $GITHUB_ENV
+	    echo "CONTAINER_NAME1=department" >> $GITHUB_ENV
             ;;
           Prod)
             echo "CLUSTER_NAME=prod-eks" >> $GITHUB_ENV
             echo "yaml_file=department.yaml" >> $GITHUB_ENV
-	          echo "CONTAINER_NAME1=department" >> $GITHUB_ENV
-            ;;
+	    echo "CONTAINER_NAME1=department" >> $GITHUB_ENV
+     	    ;;
         esac
 
     - name: Configure AWS credentials 
