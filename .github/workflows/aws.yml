@@ -1,61 +1,74 @@
-name: Deploy to Amazon EKS
+name: Publish to EKS
 on:
-  push:
-    branches:
-      - master
-env:
-  AWS_REGION: us-west-2
-  EKS_CLUSTER: my-eks
-  CONTAINER_NAME1: department
-  EKS_keycloak: .github/yaml_files/department.yaml
- 
-jobs:
-  deploy:
-    name: Deploy
+  workflow_dispatch: 
+    inputs:
+      choice:
+        type: choice
+        description: Select the environment
+        options:
+        - Dev
+        - Prod
+      build-name:
+        description: 'Build Name'
+        required: true
+      rollback-image-tag:
+        description: 'Image Tag for Rollback (leave empty if not rolling back)'
+        required: false
+
+jobs:  
+  build:    
+    name: Build and Deploy Image
     runs-on: ubuntu-latest
-    environment: Dev
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v2
+      
+
+    - name: Set environment variables
+      run: |
+        case ${{ github.event.inputs.choice }} in
+          Dev)
+            echo "CLUSTER_NAME=prod-eks" >> $GITHUB_ENV
+            echo "yaml_file=department.yaml" >> $GITHUB_ENV
+            echo "CONTAINER_NAME1=department" >> $GITHUB_ENV
+            ;;
+          Prod)
+            echo "CLUSTER_NAME=prod-eks" >> $GITHUB_ENV
+            echo "yaml_file=department.yaml" >> $GITHUB_ENV
+            echo "CONTAINER_NAME1=department" >> $GITHUB_ENV
+            ;;
+        esac
         
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: "us-west-2"
+    - name: Configure AWS credentials 
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-west-2
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v2.0
-        with:
-          version: 'v1.24.0' 
-        id: install
-          
-      - name: Update kube config
-        run: |
-          aws eks update-kubeconfig --name ${{env.EKS_CLUSTER}}
+    - name: Login to Amazon ECR 
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1   
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+    # Additional steps for building Docker image and pushing to ECR...
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image1
+      env:
+        ECR_REGISTRY: "992382462614.dkr.ecr.us-west-2.amazonaws.com"
+        ECR_REPOSITORY: "app-demo"
+        IMAGE_TAG: department
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-      - name: Build, tag, and push image to Amazon ECR
-        id: build-image1
-        env:
-          ECR_REGISTRY: "992382462614.dkr.ecr.us-west-2.amazonaws.com"
-          ECR_REPOSITORY: "app-demo"
-          IMAGE_TAG: department
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-        
-      - name: Deploy to EKS
-        run: |
-          kubectl apply -f ${{ env.EKS_keycloak }}
-          kubectl set image deployment/department ${{ env.CONTAINER_NAME1 }}=${{ steps.build-image1.outputs.image }}
-          kubectl get pods 
-          pod_name=$(kubectl get pods -o jsonpath='{.items[0].metadata.name}')
-          echo "Pod name: $pod_name"
-          kubectl rollout status deployment/department
-          kubectl get pods 
+    - name: Deploy to EKS
+      run: |
+        kubectl apply -f ${{ env.yaml_file }}
+        kubectl set image deployment/department ${{ env.CONTAINER_NAME1 }}=${{ steps.build-image1.outputs.image }}
+        kubectl get pods 
+        pod_name=$(kubectl get pods -o jsonpath='{.items[0].metadata.name}')
+        echo "Pod name: $pod_name"
+        kubectl rollout status deployment/department
+        kubectl get pods
