@@ -20,7 +20,6 @@ on:
 
 jobs:  
   build:    
-    if: ${{ env.BUILD_SUCCESS == '1' }}
     name: Build and Deploy Image
     runs-on: ubuntu-latest
     
