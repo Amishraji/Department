@@ -1,5 +1,8 @@
 name: Publish to EKS
-on: 
+on:
+  push: 
+    branches:
+    - dev
   workflow_dispatch:
     inputs:
       choice:
